@@ -1,6 +1,11 @@
 import random
 import subprocess
+import json
+from copy import deepcopy
 from pprint import pprint 
+
+DATASET_PATH = "dataset.jsonl"
+EXAMPLES = 10
 
 def generate_cases(example):
     #example  = {"diff": 3, "ans": [0, 1, 0, 1, 0], "stones": [5, 8, 13, 27, 14]}
@@ -9,6 +14,7 @@ def generate_cases(example):
     stones = example["stones"]
     piles = [[], []]
 
+    records = []
 
     for i,stone in enumerate(stones):
         state = {
@@ -54,17 +60,16 @@ def generate_cases(example):
             }
         }
 
-
         record = {
-            "state": state,
-            "question": question,
-            "gold": gold,
+            "state": deepcopy(state),
+            "question": deepcopy(question),
+            "gold": deepcopy(gold),
         }
 
-        pprint(record)
-        print("----------------------------")
-
+        records.append(record)
         piles[ans[i]].append(stone)
+
+    return records
 
 def generate_example(n):
     stones = [random.randint(1, 10) for i in range(n)]
@@ -76,8 +81,19 @@ def generate_example(n):
         capture_output=True, 
         text=True
     )
-    print(result)
+    example = json.loads(result.stdout)
+    return example
 
-# generate_cases({"diff": 3, "ans": [0, 1, 0, 1, 0], "stones": [5, 8, 13, 27, 14]})
-generate_example(4)
+def generate(n, out_file):
+    example = generate_example(n)
+    cases = generate_cases(example)
+
+    for case in cases:
+        out_file.write(json.dumps(case, ensure_ascii=False) + "\n")
+
+with open(DATASET_PATH, "w", encoding="utf-8") as out:
+    for _ in range(EXAMPLES):
+        n = random.randint(1,20)
+        generate(n, out)
+
 

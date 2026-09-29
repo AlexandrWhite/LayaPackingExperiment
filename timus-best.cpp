@@ -37,7 +37,7 @@ int main() {
 			}
 			if (j >= w[i] && dp_last[ j - w[i] ] == 1) {
 				ans[j] = ans_last[j - w[i]];
-				ans[j].push_back(w[i]);
+				ans[j].push_back(i-1);
 			}
 		}
 
@@ -47,15 +47,31 @@ int main() {
 		}
 	}
 
+	int diff;
+	vector<int>b(n, 0);
+
 	for (int i = sum/2; i >=0; i--) {
 		if (dp[i] == 1) {
-			cout << "diff: " << sum - 2 * i << "\n";
-			cout<<"pile1: ";
+			diff = sum - 2 * i;
 			for(int j=0; j < ans[i].size(); j++){
-				cout<<ans[i][j]<<" ";
+				b[ans[i][j]] = 1;
 			}
-			cout<<"\n";
-			return 0;
+			break;	
 		}
 	}
+
+	cout << "{\"diff\": " << diff << ", \"ans\": [";
+    for (size_t k = 0; k < b.size(); ++k) {
+        if (k) cout << ", ";
+        cout << b[k];
+    }
+    cout << "], \"stones\": [";
+
+    for(int i=1; i <= n; ++i){
+        if (w[i-1]) cout << ", ";
+        cout<<w[i];
+    }
+    cout<<"]}\n";
+
+	return 0;
 }
