@@ -1,13 +1,19 @@
 import random
 import subprocess
 import json
+import os 
+from pathlib import Path 
 from copy import deepcopy
-from pprint import pprint 
 
-DATASET_PATH = "dataset.jsonl"
-EXAMPLES = 10
+DS_FOLDER = "stone_packing_ds"
 
-def generate_cases(example):
+TRAIN_EXAMPLES = 10
+TEST_EXAMPLES = 10
+
+random.seed(0)
+
+def generate_cases(example, split):
+    #split variable with possible values "train", "test", "val"
     #example  = {"diff": 3, "ans": [0, 1, 0, 1, 0], "stones": [5, 8, 13, 27, 14]}
 
     ans = example["ans"]
@@ -61,6 +67,7 @@ def generate_cases(example):
         }
 
         record = {
+            "split" : split,
             "state": deepcopy(state),
             "question": deepcopy(question),
             "gold": deepcopy(gold),
@@ -84,16 +91,22 @@ def generate_example(n):
     example = json.loads(result.stdout)
     return example
 
-def generate(n, out_file):
+def generate(n, out_file, split):
     example = generate_example(n)
-    cases = generate_cases(example)
+    cases = generate_cases(example, split)
 
     for case in cases:
         out_file.write(json.dumps(case, ensure_ascii=False) + "\n")
 
-with open(DATASET_PATH, "w", encoding="utf-8") as out:
-    for _ in range(EXAMPLES):
+os.makedirs(DS_FOLDER, exist_ok=True)
+
+with open(Path(DS_FOLDER)/"train.json", "w", encoding="utf-8") as out:
+    for _ in range(TRAIN_EXAMPLES):
         n = random.randint(1,20)
-        generate(n, out)
+        generate(n, out, "train")
 
-
+with open(Path(DS_FOLDER)/"test.json", "w", encoding="utf-8") as out:
+    for _ in range(TEST_EXAMPLES):
+        n = random.randint(1,20)
+        generate(n, out, "test")
+    
