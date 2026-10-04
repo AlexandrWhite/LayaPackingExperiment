@@ -4,11 +4,12 @@ import json
 import os 
 from pathlib import Path 
 from copy import deepcopy
+import numpy as np 
 
 DS_FOLDER = "stone_packing_ds"
 
-TRAIN_EXAMPLES = 10
-TEST_EXAMPLES = 10
+TRAIN_EXAMPLES = 100
+TEST_EXAMPLES = 100
 
 random.seed(0)
 
@@ -58,7 +59,7 @@ def generate_cases(example, split):
 
         gold = {
             "solve": {
-                "label": "pile_1",
+                "label": "pile_1" if ans[i] == 0 else "pile_2",
                 "probabilities": {
                     "pile_1": 1 if ans[i] == 0 else 0,
                     "pile_2": 1 if ans[i] == 1 else 0,
@@ -73,10 +74,12 @@ def generate_cases(example, split):
             "gold": deepcopy(gold),
         }
 
-        records.append(record)
+        if i > 0:
+            records.append(record)
         piles[ans[i]].append(stone)
 
     return records
+
 
 def generate_example(n):
     stones = [random.randint(1, 10) for i in range(n)]
@@ -91,22 +94,60 @@ def generate_example(n):
     example = json.loads(result.stdout)
     return example
 
+
 def generate(n, out_file, split):
     example = generate_example(n)
     cases = generate_cases(example, split)
+    return cases 
 
+
+def even_odds(cases):
+    gold_cnt = np.array([0, 0])
+    labels = ["pile_1", "pile_2"]
+
+    #we want sample with equal golden for pile 1 and pile
     for case in cases:
-        out_file.write(json.dumps(case, ensure_ascii=False) + "\n")
+        if case["gold"]["solve"]["label"] == "pile_1":
+            gold_cnt[0] += 1
+        elif case["gold"]["solve"]["label"] == "pile_2":
+            gold_cnt[1] += 1
+    
+    skip_numbers = gold_cnt - np.min(gold_cnt)
+    
+    for case in cases:
+        pile = case["gold"]["solve"]["label"]
+        pile_idx = labels.index(pile)
+
+        if skip_numbers[pile_idx] > 0:
+            skip_numbers[pile_idx] -= 1
+            continue
+        yield case 
+
+
+    
 
 os.makedirs(DS_FOLDER, exist_ok=True)
 
-with open(Path(DS_FOLDER)/"train.json", "w", encoding="utf-8") as out:
-    for _ in range(TRAIN_EXAMPLES):
-        n = random.randint(1,20)
-        generate(n, out, "train")
+# with open(Path(DS_FOLDER)/"train.json", "w", encoding="utf-8") as out:
+#     cases = []
+#     for _ in range(TRAIN_EXAMPLES):
+#         n = random.randint(1,20)
+#         case = generate(n, out, "train")
+#         cases.append(case)
+
+#     for case in even_odds(cases):
+#         out.write(json.dumps(case, ensure_ascii=False) + "\n")
+    
+
 
 with open(Path(DS_FOLDER)/"test.json", "w", encoding="utf-8") as out:
+    cases = []
     for _ in range(TEST_EXAMPLES):
         n = random.randint(1,20)
-        generate(n, out, "test")
-    
+        case = generate(n, out, "test")
+        for row in case:
+            cases.append(row)
+
+    for case in even_odds(cases):
+        out.write(json.dumps(case, ensure_ascii=False) + "\n")
+        
