@@ -5,11 +5,16 @@ import os
 from pathlib import Path 
 from copy import deepcopy
 import numpy as np 
+from copy import deepcopy
+import pyarrow.parquet as pq
+import pyarrow as pa
+import pyarrow.dataset as ds
 
-DS_FOLDER = "stone_packing_ds"
 
-TRAIN_EXAMPLES = 100
-TEST_EXAMPLES = 100
+DS_FOLDER = "stone_packing_ds_big"
+
+TRAIN_EXAMPLES = 1000
+TEST_EXAMPLES = 500
 
 random.seed(0)
 
@@ -61,8 +66,8 @@ def generate_cases(example, split):
             "solve": {
                 "label": "pile_1" if ans[i] == 0 else "pile_2",
                 "probabilities": {
-                    "pile_1": 1 if ans[i] == 0 else 0,
-                    "pile_2": 1 if ans[i] == 1 else 0,
+                    "pile_1": 1.0 if ans[i] == 0 else 0.0,
+                    "pile_2": 1.0 if ans[i] == 1 else 0.0,
                 },
             }
         }
@@ -74,8 +79,8 @@ def generate_cases(example, split):
             "gold": deepcopy(gold),
         }
 
-        if i > 0:
-            records.append(record)
+        
+        records.append(record)
         piles[ans[i]].append(stone)
 
     return records
@@ -92,12 +97,26 @@ def generate_example(n):
         text=True
     )
     example = json.loads(result.stdout)
+    #example  = {"diff": 3, "ans": [0, 1, 0, 1, 0], "stones": [5, 8, 13, 27, 14]}
     return example
 
 
-def generate(n, out_file, split):
+def generate(n, split):
     example = generate_example(n)
+    mirror_example = deepcopy(example)
+
+    for i, p_bit in enumerate(mirror_example["ans"]):
+        if p_bit == 0:
+            mirror_example["ans"][i] = 1
+        else:
+            mirror_example["ans"][i] = 0
+
     cases = generate_cases(example, split)
+    mirror_cases = generate_cases(mirror_example, split)
+
+    for case in mirror_cases:
+        cases.append(case)
+    
     return cases 
 
 
@@ -124,19 +143,94 @@ def even_odds(cases):
         yield case 
 
 
-    
-
 os.makedirs(DS_FOLDER, exist_ok=True)
 
-# with open(Path(DS_FOLDER)/"train.json", "w", encoding="utf-8") as out:
-#     cases = []
+
+state_type = pa.struct([
+    ("remaining_stones", pa.list_(pa.int64())),
+    ("pile_1_stones",    pa.list_(pa.int64())),
+    ("pile_2_stones",    pa.list_(pa.int64())),
+    ("pile_1_weight",    pa.int64()),
+    ("pile_2_weight",    pa.int64()),
+    ("difference",       pa.int64()),
+    ("task",             pa.string()),
+])
+
+solve_question_type = pa.struct([
+    ("instructions", pa.string()),
+    ("criteria",     pa.struct([
+        ("pile_1", pa.string()),
+        ("pile_2", pa.string()),
+    ])),
+    ("type", pa.string()),
+])
+
+question_type = pa.struct([
+    ("solve", solve_question_type),
+])
+
+gold_type = pa.struct([
+    ("solve", pa.struct([
+        ("label", pa.string()),
+        ("probabilities", pa.struct([
+            ("pile_1", pa.float64()),
+            ("pile_2", pa.float64()),
+        ])),
+    ])),
+])
+
+# ---- Итоговая схема записи ----
+
+schema = pa.schema([
+    ("split",    pa.string()),
+    ("state",    state_type),
+    ("question", question_type),
+    ("gold",     gold_type),
+])
+
+
+def batch_generator():
+    CASES_INSIDE_BATCH = 1
+    BATCHES = 1
+    batc_arr = []
+
+    for batch in range(BATCHES):
+        for i in range(CASES_INSIDE_BATCH):
+            case = generate(10, "train")
+            batc_arr.extend(case)
+        # print(batc_arr)    
+        yield pa.record_batch(batc_arr, schema=schema)
+
+
+
+
+# with pq.ParquetWriter(Path(DS_FOLDER)/"train.parquet", schema, compression="snappy") as writer:
 #     for _ in range(TRAIN_EXAMPLES):
 #         n = random.randint(1,20)
-#         case = generate(n, out, "train")
-#         cases.append(case)
+#         case = generate(n, "train")
+#         for row in case:
+#             writer.write_table(pa.Table.from_pylist(row, schema=schema))
 
-#     for case in even_odds(cases):
-#         out.write(json.dumps(case, ensure_ascii=False) + "\n")
+# with pq.ParquetWriter(Path(DS_FOLDER)/"test.parquet", schema, compression="snappy") as writer:
+#     for _ in range(TEST_EXAMPLES):
+#         n = random.randint(1,20)
+#         case = generate(n, "test")
+#         for row in case:
+#             writer.write_table(pa.Table.from_pylist(row, schema=schema))
+
+
+
+
+with open(Path(DS_FOLDER)/"train.json", "w", encoding="utf-8") as out:
+    cases = []
+    for _ in range(TRAIN_EXAMPLES):
+        n = random.randint(1,20)
+        case = generate(n, "train")
+        for row in case:
+            cases.append(row)
+
+    for case in even_odds(cases):
+        out.write(json.dumps(case, ensure_ascii=False) + "\n")
     
 
 
@@ -144,7 +238,7 @@ with open(Path(DS_FOLDER)/"test.json", "w", encoding="utf-8") as out:
     cases = []
     for _ in range(TEST_EXAMPLES):
         n = random.randint(1,20)
-        case = generate(n, out, "test")
+        case = generate(n, "test")
         for row in case:
             cases.append(row)
 
