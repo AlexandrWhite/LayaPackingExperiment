@@ -5,19 +5,16 @@ import subprocess
 import numpy as np
 import pandas as pd 
 
-from laya import Router
+# from laya import Router
 from random_agent import RandomDecision
 from greed_agent import GreedDecision 
 from spam_agent import SpamDecision
 
-
 TESTS = 100
-MAX_WEIGHT = 20
-N_STONES = 15
+MAX_WEIGHT = 10
+N_STONES = 10
 
 random.seed(42)
-
-
 
 def generate_example(stones):
     n = len(stones)
@@ -92,60 +89,62 @@ def run_example(model, example, verbose=False):
         }
 
     if verbose:
-        print(f"Pile 1: {heap1}")
-        print(f"Pile 2: {heap2}")
-        print(f"Difference:", abs(sum(heap1) - sum(heap2)))
-        print(f"Minimal Difference {example['diff']}")
+        print("----------------------------------")
+        print(f"Pile 1 {heap1}")
+        print(f"Pile 2 {heap2}")
+        print(f"Diff", abs(sum(heap1) - sum(heap2)))
+        print(f"Correct Diff {example['diff']}")
         print(f"Correct Answer {example['ans']}")
+        print("----------------------------------")
 
     model_result = abs(sum(heap1) - sum(heap2))
     grounded_truth_result = example['diff']
     err = abs(model_result-grounded_truth_result)
+    diff = model_result
+    
+    return err, diff
 
-    return err
 
-
-def check_model(model, examples):
+def check_model(model, policy_name, examples):
     errors = []
+    diffs = []
+    grounded_truth_difference = []
+
     for example in examples:
-        errors.append(run_example(model, example))
-    return errors
+        err, diff = run_example(model, example, verbose=False)
+        errors.append(err)
+        diffs.append(diff)
+        grounded_truth_difference.append(example["diff"])
+    errors = np.array(errors)
+
+    result_row = {
+        "policy": policy_name, 
+        "mean_absolute_error": np.mean(errors), 
+        "max_error": np.max(errors), 
+        "min_error":np.min(errors),
+        "policy_mean_difference": np.mean(diffs),
+        "grounded_truth_mean_difference": np.mean(grounded_truth_difference)
+    }
+    
+    return result_row
         
 
  
-stones = [6,5,4,3,2,1]
-example = generate_example(stones)
+# stones = [10,1]
+# example = generate_example(stones)
 
-run_example(model = Router(models={"english": "laya_finetuned_stone_packing-20k"}), example=example, verbose = True)
-quit()
-examples = [generate_example(n=N_STONES) for i in range(TESTS)]
+# run_example(model = GreedDecision(), example=example, verbose = True)
+# quit()
 
-errors_random = np.array(check_model(RandomDecision(), examples))
-errors_greed = np.array(check_model(GreedDecision(), examples))
-# errors_spam_pile_1 = np.array(check_model(SpamDecision(spam_option="pile_1"), examples))
-# errors_spam_pile_2 = np.array(check_model(SpamDecision(spam_option="pile_2"), examples))
-# errors_laya_orig = np.array(check_model(Router(), examples))
-# errors_laya_fine_tuned = np.array(check_model(Router(models={"english": "laya_finetuned_stone_packing"}), examples))
-errors_laya_fine_tuned_20k = np.array(check_model(Router(models={"english": "laya_finetuned_stone_packing-20k"}), examples))
+examples = []
+for i in range(TESTS):
+    inputs = sorted([random.randint(1, MAX_WEIGHT) for i in range(1, N_STONES)])
+    examples.append(generate_example(inputs))
 
-
-result_greed = {"policy": "greed", "mean_absolute_diff": np.mean(errors_greed), "max_diff": np.max(errors_greed), "min_diff":np.min(errors_greed)}
-# result_random = {"policy": "random", "mean_absolute_diff": np.mean(errors_random), "max_diff": np.max(errors_random), "min_diff":np.min(errors_random)}
-# result_spam_1 = {"policy": "spam pile_1", "mean_absolute_diff": np.mean(errors_spam_pile_1), "max_diff": np.max(errors_spam_pile_1), "min_diff":np.min(errors_spam_pile_1)}
-# result_spam_2 = {"policy": "spam pile_2", "mean_absolute_diff": np.mean(errors_spam_pile_2), "max_diff": np.max(errors_spam_pile_2), "min_diff":np.min(errors_spam_pile_2)}
-# result_laya_orig = {"policy": "laya", "mean_absolute_diff": np.mean(errors_laya_orig), "max_diff": np.max(errors_laya_orig), "min_diff":np.min(errors_laya_orig)}
-# result_laya_fine_tuned = {"policy": "laya fine_tuned", "mean_absolute_diff": np.mean(errors_laya_fine_tuned), "max_diff": np.max(errors_laya_fine_tuned), "min_diff":np.min(errors_laya_fine_tuned)}
-result_laya_fine_tuned20k = {"policy": "laya fine_tuned_20k", "mean_absolute_diff": np.mean(errors_laya_fine_tuned_20k), "max_diff": np.max(errors_laya_fine_tuned_20k), "min_diff":np.min(errors_laya_fine_tuned_20k)}
-
-
-comprassion_data = [result_greed, 
-                    # result_random, 
-                    # result_spam_1, 
-                    # result_spam_2, 
-                    # result_laya_orig, 
-                    # result_laya_fine_tuned, 
-                    result_laya_fine_tuned20k
-                ]
+comprassion_data = [
+    check_model(RandomDecision(), "random", examples),
+    check_model(GreedDecision(), "greed", examples)
+]
 
 df_comp = pd.DataFrame(comprassion_data)
 print(f"=== HEAD-TO-HEAD BENCHMARK TABLE (n_stones={N_STONES} on {TESTS} tests, weights [1, {MAX_WEIGHT}]) ===\n")
