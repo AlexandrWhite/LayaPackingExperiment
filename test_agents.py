@@ -5,12 +5,12 @@ import subprocess
 import numpy as np
 import pandas as pd 
 
-# from laya import Router
+from laya import Router
 from random_agent import RandomDecision
 from greed_agent import GreedDecision 
 from spam_agent import SpamDecision
 
-TESTS = 100
+TESTS = 11
 MAX_WEIGHT = 10
 N_STONES = 10
 
@@ -105,17 +105,25 @@ def run_example(model, example, verbose=False):
     return err, diff
 
 
+def show_progress(name, progress, total, width=40):
+    ratio = progress / total if total else 0
+    filled = int(width * ratio)
+    bar = "█" * filled + "░" * (width - filled)
+    print(f"\r [{bar}] ({progress}/{total}) running for {name}", end="", flush=True)
+
+
 def check_model(model, policy_name, examples):
     errors = []
     diffs = []
     grounded_truth_difference = []
 
-    for example in examples:
+    for i, example in enumerate(examples):
         err, diff = run_example(model, example, verbose=False)
         errors.append(err)
         diffs.append(diff)
         grounded_truth_difference.append(example["diff"])
-    errors = np.array(errors)
+        show_progress(policy_name, i+1, TESTS)
+    print()
 
     result_row = {
         "policy": policy_name, 
@@ -136,14 +144,21 @@ def check_model(model, policy_name, examples):
 # run_example(model = GreedDecision(), example=example, verbose = True)
 # quit()
 
+Router(models={"english": "laya_finetuned_stone_packing-20k"})
+
 examples = []
 for i in range(TESTS):
     inputs = sorted([random.randint(1, MAX_WEIGHT) for i in range(1, N_STONES)])
     examples.append(generate_example(inputs))
 
+model_20k=Router(models={"english": "laya_finetuned_stone_packing-20k"})
+model_600=Router(models={"english": "laya_finetuned_stone_packing"})
+
 comprassion_data = [
     check_model(RandomDecision(), "random", examples),
-    check_model(GreedDecision(), "greed", examples)
+    check_model(GreedDecision(), "greed", examples),
+    check_model(model_20k, "model-20k", examples),
+    check_model(model_600, "model-600", examples)
 ]
 
 df_comp = pd.DataFrame(comprassion_data)

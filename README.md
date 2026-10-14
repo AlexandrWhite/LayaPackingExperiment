@@ -55,3 +55,10 @@
 |:--------------------|---------------------:|-----------:|-----------:|
 | greed               |                 6.2  |         18 |          0 |
 | laya fine_tuned_20k |                10.78 |         70 |          0 |
+
+=== HEAD-TO-HEAD BENCHMARK TABLE (n_stones=10 on 100 tests, weights [1, 10]) ===
+| policy    |   mean_absolute_error |   max_error |   min_error |   policy_mean_difference |   grounded_truth_mean_difference |
+|:----------|----------------------:|------------:|------------:|-------------------------:|---------------------------------:|
+| random    |                 15.18 |          42 |           0 |                    15.68 |                              0.5 |
+| greed     |                  4.88 |           8 |           2 |                     5.38 |                              0.5 |
+| model-20k |                  3.86 |          12 |           0 |                     4.36 |                              0.5 |
