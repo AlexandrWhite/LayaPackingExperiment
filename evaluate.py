@@ -10,7 +10,7 @@ from random_agent import RandomDecision
 from greed_agent import GreedDecision
 from spam_agent import SpamDecision 
 
-ds_test = load_dataset("json", data_dir="stone_packing_ds", split="test")
+ds_test = load_dataset("json", data_dir="dataset", split="test")
 
 def evaluate_agent(agent_ft, model_name, kind, cost="0.00$ (self-hosted)"):
     predictions = []
@@ -147,11 +147,11 @@ def evaluate_agent(agent_ft, model_name, kind, cost="0.00$ (self-hosted)"):
 
 comparison_data = []
 
-agent_ft = laya.Agent("laya_finetuned_stone_packing",device="cuda")
+agent_ft = laya.Agent("models/laya_finetuned_stone_packing",device="cuda")
 laya_base_row = evaluate_agent(agent_ft, "Laya", "fine-tuned" , "0.00$ (self-hosted)")
 comparison_data.append(laya_base_row)
 
-agent_ft = laya.Agent("laya_finetuned_stone_packing-20k",device="cuda")
+agent_ft = laya.Agent("models/laya_finetuned_stone_packing-20k",device="cuda")
 laya_fine20k_row = evaluate_agent(agent_ft, "Laya", "fine-tuned20k" , "0.00$ (self-hosted)")
 comparison_data.append(laya_fine20k_row)
 
