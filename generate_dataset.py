@@ -6,12 +6,10 @@ from pathlib import Path
 from copy import deepcopy
 import numpy as np 
 from copy import deepcopy
-import pyarrow.parquet as pq
-import pyarrow as pa
-import pyarrow.dataset as ds
 
 
-DS_FOLDER = "stone_packing_ds_big"
+
+DS_FOLDER = "dataset"
 
 TRAIN_EXAMPLES = 1000
 TEST_EXAMPLES = 500
@@ -144,81 +142,6 @@ def even_odds(cases):
 
 
 os.makedirs(DS_FOLDER, exist_ok=True)
-
-
-state_type = pa.struct([
-    ("remaining_stones", pa.list_(pa.int64())),
-    ("pile_1_stones",    pa.list_(pa.int64())),
-    ("pile_2_stones",    pa.list_(pa.int64())),
-    ("pile_1_weight",    pa.int64()),
-    ("pile_2_weight",    pa.int64()),
-    ("difference",       pa.int64()),
-    ("task",             pa.string()),
-])
-
-solve_question_type = pa.struct([
-    ("instructions", pa.string()),
-    ("criteria",     pa.struct([
-        ("pile_1", pa.string()),
-        ("pile_2", pa.string()),
-    ])),
-    ("type", pa.string()),
-])
-
-question_type = pa.struct([
-    ("solve", solve_question_type),
-])
-
-gold_type = pa.struct([
-    ("solve", pa.struct([
-        ("label", pa.string()),
-        ("probabilities", pa.struct([
-            ("pile_1", pa.float64()),
-            ("pile_2", pa.float64()),
-        ])),
-    ])),
-])
-
-# ---- Итоговая схема записи ----
-
-schema = pa.schema([
-    ("split",    pa.string()),
-    ("state",    state_type),
-    ("question", question_type),
-    ("gold",     gold_type),
-])
-
-
-def batch_generator():
-    CASES_INSIDE_BATCH = 1
-    BATCHES = 1
-    batc_arr = []
-
-    for batch in range(BATCHES):
-        for i in range(CASES_INSIDE_BATCH):
-            case = generate(10, "train")
-            batc_arr.extend(case)
-        # print(batc_arr)    
-        yield pa.record_batch(batc_arr, schema=schema)
-
-
-
-
-# with pq.ParquetWriter(Path(DS_FOLDER)/"train.parquet", schema, compression="snappy") as writer:
-#     for _ in range(TRAIN_EXAMPLES):
-#         n = random.randint(1,20)
-#         case = generate(n, "train")
-#         for row in case:
-#             writer.write_table(pa.Table.from_pylist(row, schema=schema))
-
-# with pq.ParquetWriter(Path(DS_FOLDER)/"test.parquet", schema, compression="snappy") as writer:
-#     for _ in range(TEST_EXAMPLES):
-#         n = random.randint(1,20)
-#         case = generate(n, "test")
-#         for row in case:
-#             writer.write_table(pa.Table.from_pylist(row, schema=schema))
-
-
 
 
 with open(Path(DS_FOLDER)/"train.json", "w", encoding="utf-8") as out:
